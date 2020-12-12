@@ -61,3 +61,6 @@ num_epochs = 5  # Setting the no. of epochs
 parameters = model_cnn(X_train, Y_train, layers_dims, mini_batch_size, learning_rate, num_epochs, True, lambd_reg)
 
 # CONTINUE HERE
+
+# [TESTS]
+test_convolution_forward()

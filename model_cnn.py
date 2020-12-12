@@ -21,14 +21,19 @@ def model_cnn(X, Y, layers_dims, mini_batch_size, learning_rate, num_epochs, pri
     # - Fully-Connected (fc)
     # Now there are many ways in which you can combine these layers, however there are some
     # well-known model which have been studied throughout history.
-    # One such notable model is LeNet-5 developed in 1998 by Yann Lecun in order tp
+    # One such notable model is LeNet-5 developed in 1998 by Yann Lecun in order to
     # identify handwritten digits for zip code recognition in the postal service. This model
     # is considered by many to be the pioneering model which changed the way we see CNNs.
     # Foreword: we use max pooling instead of avg pooling as it is specified in the original paper.
     # STEPS:
     # input (28x28x1) =>
     # => (conv s=1, f=6 of size 5x5, p=0) 24x24x6 =>
-    # => (pool max s=2, f=2, p=0) ... => ...
+    # => (pool max s=2, f=2, p=0) 12x12x6 =>
+    # => (conv s=1, f=16 of size 5x5, p=0) 8x8x16 =>
+    # => (pool max s=2, f=2, p=0) 4x4x16 (=256 nodes) =>
+    # => (fc) 120x1x1 =>
+    # => (fc) 84x1x1 =>
+    # => output softmax layer (10x1x1)
     pass
 
 
@@ -44,7 +49,7 @@ Some useful information:
 - + Same convolutions => pad such that the output size stays the same as the input size
 -   for this we use the following formula for the padding: p = (f-1)/2 (f is odd by convention) 
 - stride: how many steps at a time the filter is moved
-- n x n * f x f => floor((n + 2p - f) / s + 1) x floor((n + 2p - f) / s + 1)
+- convolving: n x n * f x f => floor((n + 2p - f) / s + 1) x floor((n + 2p - f) / s + 1)
 - now for multi-channeled layers: n x n x n_c * f x f x n_c = n-f+1 x n-f+1 x n_c' where n_c is the no. of channels
-- pooling n x n x n_c => floor((n - f) /s + 1) x floor((n - f) /s + 1)
+- pooling: n x n x n_c => floor((n - f) / s + 1) x floor((n - f) / s + 1)
 '''

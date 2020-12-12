@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import csv
 
 '''
-    Module with methods used for accomplishing different tasks which we must do more than once
+    Module with methods used for accomplishing different tasks applied more than once
 '''
 
 
@@ -49,7 +49,6 @@ def visualise_random_images(X, m, no):
         pic_vector = X[rnd]
         plt.imshow(pic_vector)
         plt.show()
-        print(X[rnd])
 
 
 def initialise_parameters_randomly(layers_dims):
@@ -100,3 +99,141 @@ def load_dataset(m, img_size, typ):
     Y_train = Y_train.reshape((1, Y_train.shape[0]))
 
     return [X_train, Y_train]
+
+
+# Convolution Functions
+def zero_padding(X, pad):
+    '''
+    Adds zeros around the border of an image (used to avoid shrinking of the image after convolving)
+    :param X: numpy array of shape (m,n_H,n_W,n_C) = batch of m images
+    :param pad: integer, amount of padding around each image on vertical/horizontal dimensions
+    :return: X_pad - padded image of shape (m, n_H + 2*pad, n_W + 2*pad, n_C)
+    '''
+    X_pad = np.pad(X, ((0,0), (pad,pad), (pad,pad), (0,0)), 'constant', constant_values=0)
+    return X_pad
+
+def test_zero_padding():
+    print("[TEST] Zero Padding")
+    np.random.seed(1)
+    x = np.random.randn(4, 3, 3, 2)
+    x_pad = zero_padding(x, 1) # apply a padding of 1
+    print("x.shape =", x.shape)
+    print("x_pad.shape =", x_pad.shape)
+    print("x[1,1] =", x[1, 1])
+    print("x_pad[1,1] =", x_pad[1, 1])
+
+    fig, axarr = plt.subplots(1, 2)
+    axarr[0].set_title('x')
+    axarr[0].imshow(x[0, :, :, 0])
+    axarr[1].set_title('x_pad')
+    axarr[1].imshow(x_pad[0, :, :, 0])
+
+    plt.show()
+
+    print("[TEST/] Zero Padding")
+
+def conv_single_step(a_slice_prev, W, b):
+    '''
+    Applies one filter defined by parameters W on a single slice of the output activation
+    :param a_slice_prev: slice of input data of shape (f,f,n_C_prev)
+    :param W: weight params contained in a window (f,f,n_C_prev)
+    :param b: bias params contained in a window (1,1,1)
+    :return: Z - scalar value, result of convolving the sliding window (W,b) on a slice x
+     of the input data
+    '''
+    s = np.multiply(a_slice_prev, W)  # Multiply with the parameters W
+    Z = np.sum(s)  # Sum over all entries
+    Z = Z + float(b)  # Adding the bias
+    return Z
+
+def test_conv_single_step():
+    print("[TEST] Convolve single step")
+    np.random.seed(1)
+    a_slice_prev = np.random.randn(4, 4, 3)
+    W = np.random.randn(4, 4, 3)  # Initialize random parameters
+    b = np.random.randn(1, 1, 1)
+    Z = conv_single_step(a_slice_prev, W, b)
+    print("Z=", Z)
+
+    print("[TEST/] Convolve single step")
+
+def convolve_window():
+    pass
+
+def convolution_forward(A_prev, W, b, hparameters):
+    '''
+    Implements the forward propagation for a convolution function
+    :param A_prev: output activations of the previous layer (m,n_H_prev,n_W_prev,n_C_prev)
+    :param W: weights
+    :param b: biases
+    :param hparameters: dictionary with 'stride' and 'pad'
+    :return: Z - conv output (m,n_H,n_H,n_C)
+             cache - cache of values needed for the convolution_backward()
+    '''
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape  # Dimensions from A_prev's shape
+    (f, f, n_C_prev, n_C) = W.shape  # Dimensions from W's shape
+
+    stride = hparameters['stride']
+    pad = hparameters['pad']
+
+    # We first compute the dimensions of the conv output volume
+    n_H = int((n_H_prev - f + 2 * pad) / stride) + 1
+    n_W = int((n_W_prev - f + 2 * pad) / stride) + 1
+
+    # Now the output volume Z may be initialized
+    Z = np.zeros((m, n_H, n_W, n_C))
+
+    A_prev_pad = zero_padding(A_prev, pad)  # Apply padding to previous layer
+
+    for i in range(m):  # For each training example
+        a_prev_pad = A_prev_pad[i]  # Select the ith training example's padded activation
+        for h in range(n_H):
+            for w in range(n_W):
+                for c in range(n_C):
+                    # Finding the corners of the current slice
+                    vert_start = h * stride
+                    vert_end = vert_start + f
+                    horiz_start = w * stride
+                    horiz_end = horiz_start + f
+
+                    a_slice_prev = a_prev_pad[vert_start:vert_end, horiz_start:horiz_end, :]
+
+                    # Apply convolution on current slice
+                    Z[i, h, w, c] = conv_single_step(a_slice_prev, W[..., c], b[..., c])
+
+    assert(Z.shape == (m, n_H, n_W, n_C))
+
+    cache = (A_prev, W, b, hparameters)  # Cache the findings
+
+    return Z, cache
+
+def test_convolution_forward():
+    print("[TEST] Convolution forward")
+    np.random.seed(1)
+    A_prev = np.random.randn(10, 4, 4, 3)
+    W = np.random.randn(2, 2, 3, 8)
+    b = np.random.randn(1, 1, 1, 8)
+    hparameters = {"pad": 2, "stride": 2}
+
+    Z, cache_conv = convolution_forward(A_prev, W, b, hparameters)
+    print("Z's mean = ", np.mean(Z))
+    print("Z[3,2,1] = ", Z[3, 2, 1])
+    print("cache_conv[0][1][2][3] = ", cache_conv[0][1][2][3])
+    print("[TEST/] Convolution forward")
+
+
+def convolution_backward():
+    pass
+
+# Pooling functions
+def pooling_forward():
+    pass
+
+def create_mask():
+    pass
+
+def distribute_value():
+    pass
+
+def pooling_backward():
+    pass
