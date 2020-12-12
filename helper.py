@@ -157,9 +157,6 @@ def test_conv_single_step():
 
     print("[TEST/] Convolve single step")
 
-def convolve_window():
-    pass
-
 def convolution_forward(A_prev, W, b, hparameters):
     '''
     Implements the forward propagation for a convolution function
@@ -221,19 +218,237 @@ def test_convolution_forward():
     print("cache_conv[0][1][2][3] = ", cache_conv[0][1][2][3])
     print("[TEST/] Convolution forward")
 
+    return Z, cache_conv
 
-def convolution_backward():
-    pass
+
+def convolution_backward(dZ, cache):
+    '''
+    Backward propagation for convolution function
+    :param dZ: gradient of the cost with respect to the output of the conv layer (Z)
+    :param cache: cache of values needed for backprop
+    :return: dA_prev - gradient of the cost w.r.t. to the previous layer A_prev (m,n_H_prev,n_W_prev,n_C_prev)
+             dW - gradient of the cost w.r.t. the weights W (f,f,n_C_prev,n_C)
+             db - gradient of the cost w.r.t. the biases b (1,1,1,n_C)
+    '''
+    # Retrieving parameters
+    (A_prev, W, b, hparameters) = cache
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    (f, f, n_C_prev, n_C) = W.shape
+    stride = hparameters['stride']
+    pad = hparameters['pad']
+    (m, n_H, n_W, n_C) = dZ.shape
+
+    # Initialize the outputs
+    dA_prev = np.zeros((m, n_H_prev, n_W_prev, n_C_prev))
+    dW = np.zeros((f, f, n_C_prev, n_C))
+    db = np.zeros((1, 1, 1, n_C))
+
+    # Pad A_prev and dA_prev
+    A_prev_pad = zero_padding(A_prev, pad)
+    dA_prev_pad = zero_padding(dA_prev, pad)
+
+    for i in range(m):
+        a_prev_pad = A_prev_pad[i]
+        da_prev_pad = dA_prev_pad[i]
+        for h in range(n_H):
+            for w in range(n_W):
+                for c in range(n_C):
+                    # Find corners of current slice
+                    vert_start = h
+                    vert_end = vert_start + f
+                    horiz_start = w
+                    horiz_end = horiz_start + f
+
+                    # Slice
+                    a_slice = a_prev_pad[vert_start:vert_end, horiz_start:horiz_end, :]
+
+                    # Update gradients
+                    da_prev_pad[vert_start:vert_end, horiz_start:horiz_end, :] += W[:, :, : , c] * dZ[i, h, w, c]
+                    dW[:, :, :, c] += a_slice * dZ[i, h, w, c]
+                    db[:, :, :, c] += dZ[i, h, w, c]
+
+        # Set the ith training example's dA_prev to the unpaded da_prev_pad
+        dA_prev[i, :, :, :] = da_prev_pad[pad:-pad, pad:-pad, :]  # Unpadding
+
+    assert(dA_prev.shape == (m, n_H_prev, n_W_prev, n_C_prev))
+
+    return dA_prev, dW, db
+
+def test_convolution_backward():
+    Z, cache_conv = test_convolution_forward()
+    print("[TEST] Convolution backward")
+    dA, dW, db = convolution_backward(Z, cache_conv)
+    print("dA_mean = ", np.mean(dA))
+    print("dW_mean = ", np.mean(dW))
+    print("db_mean = ", np.mean(db))
+    print("[TEST/] Convolution backward")
+
 
 # Pooling functions
-def pooling_forward():
-    pass
+def pooling_forward(A_prev, hparameters, type = "max"):
+    '''
+    Implements the forward pass of the pooling layer
+    :param A_prev: input of shape (m,n_H_prev,n_W_prev,n_C_prev)
+    :param hparameters: dictionary containing 'f' and 'stride'
+    :param type: 'max' or 'average'
+    :return: A - output of the pool layer (m,n_H,n_W,n_C)
+             cache - used for backward pass - contains input and hparameters
+    '''
 
-def create_mask():
-    pass
+    # Retreive different values
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    f = hparameters['f']
+    stride = hparameters['stride']
 
-def distribute_value():
-    pass
+    # Dimensions of the output
+    n_H = int(1 + (n_H_prev - f) / stride)
+    n_W = int(1 + (n_W_prev - f) / stride)
+    n_C = n_C_prev
 
-def pooling_backward():
-    pass
+    # Initialize output matrix with zeros
+    A = np.zeros((m, n_H, n_W, n_C))
+
+    for i in range(m):
+        for h in range(n_H):
+            for w in range(n_W):
+                for c in range(n_C):
+                    # Define corners
+                    vert_start = h * stride
+                    vert_end = vert_start + f
+                    horiz_start = w * stride
+                    horiz_end = horiz_start + f
+
+                    # Take a slice
+                    a_prev_slice = A_prev[i, vert_start:vert_end, horiz_start:horiz_end, c]
+
+                    # Compute pooling operation
+                    if type == 'max':
+                        A[i, h, w, c] = np.max(a_prev_slice)
+                    elif type == 'average':
+                        A[i, h, w, c] = np.mean(a_prev_slice)
+
+    cache = (A_prev, hparameters)
+
+    assert(A.shape == (m, n_H, n_W, n_C))
+
+    return A, cache
+
+def test_pooling_forward():
+    np.random.seed(1)
+    A_prev = np.random.randn(2, 4, 4, 3)
+    hparameters = {'stride': 2, 'f': 3}
+
+    print("[TEST] Pooling forward")
+    A, cache = pooling_forward(A_prev, hparameters, "max")
+    print("type = max")
+    print("A = ", A)
+    A, cache = pooling_forward(A_prev, hparameters, "average")
+    print("type = average")
+    print("A = ", A)
+    print("[TEST/] Pooling forward")
+
+
+def create_mask(x, type):
+    '''
+    Creates a mask from an input matrix x to identify the max entry of x
+    :param x: Array of shape (f, f)
+    :param type: 'max' or 'average'
+    :return: mask - array of shape (f, f) with True at the pos of the max/average entry
+    '''
+    mask = 0
+    if type == 'max':
+        mask = x == np.max(x)
+    elif type == 'average':
+        mask = x == np.average(x)
+    return mask
+
+def test_create_mask():
+    print("[TEST] Mask creation")
+    np.random.seed(1)
+    x = np.random.randn(2, 3)
+    mask = create_mask(x, 'max')
+    print('x = ', x)
+    print('max mask = ', mask)
+    mask = create_mask(x, 'average')
+    print('average mask = ', mask)
+    print("[TEST/] Mask creation")
+
+def distribute_value(dz, shape):
+    '''
+    Distributes the input value in the matrix of dimension shape
+    :param dz: input scalar
+    :param shape: (n_H, n_W) shape of output matrix for which we want to distribute value of dz
+    :return: a - array of size (n_H, n_W) for which we distributed the value of dz
+    '''
+    (n_H, n_W) = shape
+    average = dz / (n_H * n_W)
+
+    a = np.ones(shape) * average
+
+    return a
+
+def pooling_backward(dA, cache, type = 'max'):
+    '''
+    Implements the backward propagation of the pooling layer
+    :param dA: gradient of cost w.r.t. the out of pooling layer (same shape as A)
+    :param cache: cache output from forward pass of pooling layer (layer's input and hparameters)
+    :param type: 'max' or 'average'
+    :return: dA_prev - gradient of cost w.r.t. the input of the pooling layer (same shape as A_prev)
+    '''
+
+    # Retrieving some values
+    (A_prev, hparameters) = cache
+    stride = hparameters['stride']
+    f = hparameters['f']
+    m, n_H_prev, n_W_prev, n_C_prev = A_prev.shape
+    m, n_H, n_W, n_C = dA.shape
+
+    # Initialize output
+    dA_prev = np.zeros(A_prev.shape)
+
+    for i in range(m):
+        a_prev = A_prev[i]  # Select training example from A_prev
+        for h in range(n_H):
+            for w in range(n_W):
+                for c in range(n_C):
+                    # Find corners of current slice
+                    vert_start = h
+                    vert_end = vert_start + f
+                    horiz_start = w
+                    horiz_end = horiz_start + f
+
+                    if type == 'max':
+                        # Slice
+                        a_prev_slice = a_prev[vert_start:vert_end, horiz_start:horiz_end, c]
+                        # Add mask
+                        mask = create_mask(a_prev_slice, type)
+                        # Multiply by mask
+                        dA_prev[i, vert_start:vert_end, horiz_start:horiz_end, c] += np.multiply(mask, dA[i, h, w, c])
+                    elif type == 'average':
+                        da = dA[i, h, w, c]  # Get the value a from dA
+                        shape = (f, f)  # Define shape of filter
+                        # Distribute it to get the correct slice of dA_prev
+                        dA_prev[i, vert_start:vert_end, horiz_start:horiz_end, c] += distribute_value(da, shape)
+
+    assert(dA_prev.shape == A_prev.shape)
+
+    return dA_prev
+
+def test_pooling_backward():
+    print('[TEST] Pooling backward')
+    np.random.seed(1)
+    A_prev = np.random.randn(5, 5, 3, 2)
+    hparameters = {'stride': 1, 'f': 2}
+    A, cache = pooling_forward(A_prev, hparameters)
+    dA = np.random.randn(5, 4, 2, 2)
+
+    dA_prev = pooling_backward(dA, cache, 'max')
+    print('type = max')
+    print('mean of dA = ', np.mean(dA))
+    print('dA_prev[1,1] = ', dA_prev[1,1])
+    print()
+    dA_prev = pooling_backward(dA, cache, 'average')
+    print('type = average')
+    print('mean of dA = ', np.mean(dA))
+    print('dA_prev[1,1] = ', dA_prev[1, 1])
+    print('[TEST/] Pooling backward')

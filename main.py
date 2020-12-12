@@ -63,4 +63,4 @@ parameters = model_cnn(X_train, Y_train, layers_dims, mini_batch_size, learning_
 # CONTINUE HERE
 
 # [TESTS]
-test_convolution_forward()
+test_pooling_backward()
