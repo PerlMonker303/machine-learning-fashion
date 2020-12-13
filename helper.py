@@ -26,10 +26,12 @@ def transform_y_true_label(Y, n_y):
     '''
     C = 10 # number of classes
     # [DEBUG] - to understand how it is done
+    '''
     A = np.eye(C)
     B = Y.reshape(-1)
     D = A[B]
     E = D.T
+    '''
     Y = np.eye(C)[Y.reshape(-1)].T  # eye gives an array of 1s with
     return Y
 
@@ -73,7 +75,7 @@ def load_dataset(m, img_size, typ):
     :param m: how many examples to load
     :param img_size: size of image
     :param typ: "train" or "train"
-    :return:
+    :return: [X_train, Y_train]
     '''
     # Gray scale images
     X_train_original = []  # Default Python array containing the features
@@ -95,7 +97,6 @@ def load_dataset(m, img_size, typ):
     X_train = X_train.astype('uint8')  # Changing the dtypes to uint8
     Y_train = Y_train.astype('uint8')
     X_train = np.reshape(X_train, (X_train.shape[0], img_size, img_size, 1))
-    print(X_train)
     Y_train = Y_train.reshape((1, Y_train.shape[0]))
 
     return [X_train, Y_train]
@@ -285,7 +286,7 @@ def test_convolution_backward():
 
 
 # Pooling functions
-def pooling_forward(A_prev, hparameters, type = "max"):
+def pooling_forward(A_prev, hparameters, type="max"):
     '''
     Implements the forward pass of the pooling layer
     :param A_prev: input of shape (m,n_H_prev,n_W_prev,n_C_prev)
@@ -452,3 +453,20 @@ def test_pooling_backward():
     print('mean of dA = ', np.mean(dA))
     print('dA_prev[1,1] = ', dA_prev[1, 1])
     print('[TEST/] Pooling backward')
+
+
+def softmax(Z):
+    # Softmax Function
+    return np.exp(Z) / np.sum(np.exp(Z), axis=0)
+
+
+def relu(Z):
+    # Rectified Linear Unit Function used for the traversal of the Neural Network
+    return np.maximum(0, Z)
+
+
+def logarithm(Z):
+    # Logarithm function that does not allow 0 values (because log(0) = -infinity)
+    constant = 0.000001
+    Z = np.where(Z == 0.0, constant, Z)
+    return np.log(Z)
